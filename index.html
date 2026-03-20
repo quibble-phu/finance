@@ -83,13 +83,13 @@
         }
 
         /* ─── Display Area ─── */
-        .display-area { text-align: right; margin-bottom: 20px; }
-        .amount { font-size: 3.5rem; font-weight: 800; color: var(--text-main); line-height: 1.1; margin-bottom: 10px; transition: color 0.2s; letter-spacing: -1px; }
+        .display-area { text-align: right; margin-bottom: 20px; transition: all 0.3s ease; }
+        .amount { font-size: 3.5rem; font-weight: 800; color: var(--text-main); line-height: 1.1; margin-bottom: 10px; transition: all 0.3s ease; letter-spacing: -1px; }
         .note-input {
             border: none; border-bottom: 2px dashed var(--border-color); border-radius: 0;
             text-align: right; padding: 8px 0; font-size: 1rem; color: var(--text-muted);
-            width: 100%; outline: none; background: transparent; transition: border-color 0.2s;
-            font-family: 'Inter', sans-serif;
+            width: 100%; outline: none; background: transparent; transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif; max-height: 50px; overflow: hidden;
         }
         .note-input:focus { border-bottom-color: var(--primary); }
         .date-input {
@@ -202,8 +202,18 @@
                 padding: 20px 16px; background: transparent;
                 backdrop-filter: none; -webkit-backdrop-filter: none;
             }
-            .amount { font-size: 3rem; }
-            .numpad-btn { height: 60px; font-size: 1.4rem; }
+            .display-area {
+                position: sticky; top: 56px; z-index: 100;
+                background: var(--nav-bg); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+                margin: 0 -16px; padding: 10px 16px 8px;
+                border-bottom: 1px solid var(--border-color);
+                border-radius: 0;
+            }
+            .display-area.stuck .amount { font-size: 2rem; margin-bottom: 4px; }
+            .display-area.stuck .note-input { max-height: 0; padding: 0; margin: 0; border: none; }
+            .display-area.stuck .d-flex.justify-content-between { margin-bottom: 0 !important; }
+            .amount { font-size: 2.8rem; }
+            .numpad-btn { height: 58px; font-size: 1.4rem; }
         }
     </style>
     <script>
@@ -555,6 +565,19 @@
         if (icon) icon.className = document.documentElement.getAttribute('data-theme') === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
     }
     updateThemeIcon();
+
+    // ─── Sticky Display (Mobile) ───
+    // เมื่อเลื่อนจอลงจนไม่เห็น type toggle → display area จะย่อเหลือแค่ตัวเลข
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        const displayArea = document.querySelector('.display-area');
+        const typeToggle = document.querySelector('.type-toggle');
+        if (displayArea && typeToggle) {
+            const observer = new IntersectionObserver(([entry]) => {
+                displayArea.classList.toggle('stuck', !entry.isIntersecting);
+            }, { threshold: 0, rootMargin: '-64px 0px 0px 0px' });
+            observer.observe(typeToggle);
+        }
+    }
 </script>
 
 </body>
