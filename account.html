@@ -115,11 +115,12 @@
             box-shadow: 0 2px 8px var(--primary-glow);
         }
         .add-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px var(--primary-glow); }
-        .delete-item-btn {
+        .delete-item-btn, .edit-item-btn {
             background: none; border: none; color: var(--text-muted); cursor: pointer;
             padding: 6px 8px; border-radius: 8px; transition: all 0.2s; font-size: 0.85rem;
         }
         .delete-item-btn:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+        .edit-item-btn:hover { color: var(--primary); background: rgba(99,102,241,0.1); }
 
         /* ─── Bottom Nav ─── */
         .bottom-nav {
@@ -328,7 +329,10 @@
                 list.innerHTML += `
                     <div class="setting-item">
                         <div class="fw-bold"><i class="fa-solid fa-wallet me-2" style="color:var(--text-muted)"></i> ${data.name}</div>
-                        <button class="delete-item-btn" onclick="deleteDocument('wallets', '${doc.id}')"><i class="fa-solid fa-trash"></i></button>
+                        <div class="d-flex gap-1">
+                            <button class="edit-item-btn" onclick="renameWallet('${doc.id}', '${data.name.replace(/'/g, "\\'")}')" title="เปลี่ยนชื่อ"><i class="fa-solid fa-pen"></i></button>
+                            <button class="delete-item-btn" onclick="deleteDocument('wallets', '${doc.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </div>
                 `;
             });
@@ -352,7 +356,10 @@
                             <span class="fw-bold me-2"><i class="fa-solid ${data.icon || 'fa-tag'}"></i> ${data.name}</span>
                             <span class="badge" style="background: ${typeColor}15; color: ${typeColor}; font-weight: 600; font-size: 0.7rem;">${typeLabel}</span>
                         </div>
-                        <button class="delete-item-btn" onclick="deleteDocument('categories', '${doc.id}')"><i class="fa-solid fa-trash"></i></button>
+                        <div class="d-flex gap-1">
+                            <button class="edit-item-btn" onclick="renameCategory('${doc.id}', '${data.name.replace(/'/g, "\\'")}')" title="เปลี่ยนชื่อ"><i class="fa-solid fa-pen"></i></button>
+                            <button class="delete-item-btn" onclick="deleteDocument('categories', '${doc.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </div>
                 `;
             });
@@ -444,6 +451,104 @@
         if (icon) icon.className = document.documentElement.getAttribute('data-theme') === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
     }
     updateThemeIcon();
+    // 6. เปลี่ยนชื่อกระเป๋าเงิน / หมวดหมู่
+    async function renameWallet(docId, currentName) {
+        const { value: newName } = await Swal.fire({
+            title: 'เปลี่ยนชื่อกระเป๋าเงิน',
+            input: 'text',
+            inputValue: currentName,
+            showCancelButton: true,
+            confirmButtonText: 'บันทึก',
+            confirmButtonColor: '#6366f1',
+            cancelButtonText: 'ยกเลิก'
+        });
+
+        if (newName && newName.trim() !== currentName) {
+            Swal.fire({ title: 'กำลังอัปเดต...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try {
+                const trimmedNewName = newName.trim();
+                const batch = db.batch();
+                
+                // 1. Update the wallet document
+                batch.update(db.collection("wallets").doc(docId), { name: trimmedNewName });
+                
+                // 2. Find and update all transactions that used the old wallet name
+                const txSnapshot = await db.collection("transactions").where("uid", "==", currentUser.uid).get();
+                txSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    let needsUpdate = false;
+                    let updateData = {};
+                    
+                    if (data.type === 'transfer') {
+                        let wFrom = data.walletFrom;
+                        let wTo = data.walletTo;
+                        if (wFrom === currentName) { wFrom = trimmedNewName; needsUpdate = true; }
+                        if (wTo === currentName) { wTo = trimmedNewName; needsUpdate = true; }
+                        if (needsUpdate) {
+                            updateData.walletFrom = wFrom;
+                            updateData.walletTo = wTo;
+                            // Update the display string too
+                            updateData.wallet = wFrom + ' → ' + wTo;
+                        }
+                    } else {
+                        if (data.wallet === currentName) {
+                            updateData.wallet = trimmedNewName;
+                            needsUpdate = true;
+                        }
+                    }
+                    
+                    if (needsUpdate) {
+                        batch.update(doc.ref, updateData);
+                    }
+                });
+                
+                await batch.commit();
+                Swal.fire({ icon: 'success', title: 'เปลี่ยนชื่อสำเร็จ!', showConfirmButton: false, timer: 1200 });
+            } catch (error) {
+                console.error("Error renaming wallet:", error);
+                Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: 'ไม่สามารถเปลี่ยนชื่อได้' });
+            }
+        }
+    }
+
+    async function renameCategory(docId, currentName) {
+        const { value: newName } = await Swal.fire({
+            title: 'เปลี่ยนชื่อหมวดหมู่',
+            input: 'text',
+            inputValue: currentName,
+            showCancelButton: true,
+            confirmButtonText: 'บันทึก',
+            confirmButtonColor: '#6366f1',
+            cancelButtonText: 'ยกเลิก'
+        });
+
+        if (newName && newName.trim() !== currentName) {
+            Swal.fire({ title: 'กำลังอัปเดต...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try {
+                const trimmedNewName = newName.trim();
+                const batch = db.batch();
+                
+                // 1. Update the category document
+                batch.update(db.collection("categories").doc(docId), { name: trimmedNewName });
+                
+                // 2. Update existing transactions with the new category name
+                const txSnapshot = await db.collection("transactions")
+                    .where("uid", "==", currentUser.uid)
+                    .where("category", "==", currentName)
+                    .get();
+                    
+                txSnapshot.forEach(doc => {
+                    batch.update(doc.ref, { category: trimmedNewName });
+                });
+                
+                await batch.commit();
+                Swal.fire({ icon: 'success', title: 'เปลี่ยนชื่อสำเร็จ!', showConfirmButton: false, timer: 1200 });
+            } catch (error) {
+                console.error("Error renaming category:", error);
+                Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: 'ไม่สามารถเปลี่ยนชื่อได้' });
+            }
+        }
+    }
 </script>
 
 </body>

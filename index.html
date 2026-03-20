@@ -125,7 +125,13 @@
         .wallet-btn.active { border-color: var(--primary); background: rgba(99,102,241,0.1); color: var(--primary); }
 
         /* ─── Categories ─── */
-        .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; margin-bottom: 25px; }
+        .category-grid { 
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; margin-bottom: 25px;
+            max-height: 190px; overflow-y: auto; overflow-x: hidden; padding-right: 5px; scrollbar-width: thin; scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+        }
+        .category-grid::-webkit-scrollbar { width: 4px; }
+        .category-grid::-webkit-scrollbar-track { background: transparent; }
+        .category-grid::-webkit-scrollbar-thumb { background-color: rgba(148, 163, 184, 0.4); border-radius: 4px; }
         .cat-btn {
             border-radius: 14px; border: 1.5px solid var(--border-color); background: var(--card-bg);
             padding: 14px 5px; text-align: center; cursor: pointer; transition: all 0.2s ease;
