@@ -509,16 +509,21 @@
 
         let absoluteBalance = 0;
         allTransactions.forEach(t => {
-            if (fWallet === 'all' || t.wallet === fWallet) {
-                if(t.type === 'income') absoluteBalance += t.amount;
-                if(t.type === 'expense') absoluteBalance -= t.amount;
+            const matchWallet = fWallet === 'all' || t.wallet === fWallet || t.walletFrom === fWallet || t.walletTo === fWallet;
+            if (matchWallet) {
+                if (t.type === 'income') absoluteBalance += t.amount;
+                if (t.type === 'expense') absoluteBalance -= t.amount;
+                if (t.type === 'transfer' && fWallet !== 'all') {
+                    if (t.walletFrom === fWallet) absoluteBalance -= t.amount;
+                    if (t.walletTo === fWallet) absoluteBalance += t.amount;
+                }
             }
         });
         document.getElementById('summaryBalance').innerText = absoluteBalance.toLocaleString() + ' ฿';
 
         let filteredData = allTransactions.filter(t => {
             const passDate = t.dateObj >= startDate && t.dateObj <= endDate;
-            const passWallet = fWallet === 'all' ? true : (t.wallet === fWallet);
+            const passWallet = fWallet === 'all' ? true : (t.wallet === fWallet || t.walletFrom === fWallet || t.walletTo === fWallet);
             return passDate && passWallet;
         });
 
@@ -569,22 +574,32 @@
             if(t.type === 'income') trendData[timeKey].inc += amount;
 
             const isExp = t.type === 'expense';
-            const sign = isExp ? '-' : '+';
-            const colorClass = isExp ? 'text-danger' : 'text-success';
-            const icon = isExp ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up';
+            const isTransfer = t.type === 'transfer';
+            let sign, colorClass, icon;
+
+            if (isTransfer) {
+                sign = ''; colorClass = 'text-primary'; icon = 'fa-right-left';
+            } else if (isExp) {
+                sign = '-'; colorClass = 'text-danger'; icon = 'fa-arrow-trend-down';
+            } else {
+                sign = '+'; colorClass = 'text-success'; icon = 'fa-arrow-trend-up';
+            }
+
             const timeStr = t.dateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute:'2-digit' });
             const dateStr = t.dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+            const displayCategory = isTransfer ? (escapeHtml(t.walletFrom || '?') + ' → ' + escapeHtml(t.walletTo || '?')) : escapeHtml(category);
+            const walletDisplay = isTransfer ? 'โอนเงิน' : (escapeHtml(t.wallet) || '-');
 
             listContainer.insertAdjacentHTML('beforeend', `
                 <div class="transaction-item">
                     <div class="t-icon"><i class="fa-solid ${icon} ${colorClass}"></i></div>
                     <div class="t-info">
-                        <div class="t-title">${escapeHtml(category)}</div>
-                        <div class="t-meta"><i class="fa-solid fa-wallet"></i> ${escapeHtml(t.wallet) || '-'} • ${escapeHtml(dateStr)} ${escapeHtml(timeStr)}</div>
+                        <div class="t-title">${displayCategory}</div>
+                        <div class="t-meta"><i class="fa-solid fa-wallet"></i> ${walletDisplay} • ${escapeHtml(dateStr)} ${escapeHtml(timeStr)}</div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <div class="fw-bold ${colorClass}">${sign}${amount.toLocaleString()} ฿</div>
-                        <button class="edit-btn" onclick='editTransaction(${JSON.stringify(JSON.stringify({id: t.id, amount: t.amount, type: t.type, category: category, wallet: t.wallet, note: t.note || "", dateISO: t.dateObj.toISOString()}))})' title="แก้ไขรายการนี้">
+                        <button class="edit-btn" onclick='editTransaction(${JSON.stringify(JSON.stringify({id: t.id, amount: t.amount, type: t.type, category: category, wallet: t.wallet, walletFrom: t.walletFrom || '', walletTo: t.walletTo || '', note: t.note || "", dateISO: t.dateObj.toISOString()}))})' title="แก้ไขรายการนี้">
                             <i class="fa-solid fa-pen"></i>
                         </button>
                         <button class="delete-btn" onclick="deleteTransaction('${t.id}')" title="ลบรายการนี้">

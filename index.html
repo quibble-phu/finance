@@ -255,13 +255,24 @@
         <input type="text" id="txNote" class="note-input" placeholder="บันทึกช่วยจำ (ไม่บังคับ)..." maxlength="50">
     </div>
 
-    <div class="section-title"><i class="fa-solid fa-wallet me-1"></i> กระเป๋าเงิน</div>
-    <div class="scroll-container" id="walletContainer">
-        <div class="text-muted small py-2"><i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลด...</div>
+    <div id="walletSection">
+        <div class="section-title"><i class="fa-solid fa-wallet me-1"></i> กระเป๋าเงิน</div>
+        <div class="scroll-container" id="walletContainer">
+            <div class="text-muted small py-2"><i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลด...</div>
+        </div>
     </div>
 
-    <div class="section-title"><i class="fa-solid fa-tags me-1"></i> หมวดหมู่</div>
-    <div class="category-grid" id="categoryContainer"></div>
+    <div id="transferSection" style="display: none;">
+        <div class="section-title"><i class="fa-solid fa-right-from-bracket me-1"></i> จากกระเป๋า</div>
+        <div class="scroll-container" id="walletFromContainer"></div>
+        <div class="section-title mt-2"><i class="fa-solid fa-right-to-bracket me-1"></i> ไปกระเป๋า</div>
+        <div class="scroll-container" id="walletToContainer"></div>
+    </div>
+
+    <div id="categorySection">
+        <div class="section-title"><i class="fa-solid fa-tags me-1"></i> หมวดหมู่</div>
+        <div class="category-grid" id="categoryContainer"></div>
+    </div>
 
     <div class="numpad-grid mt-2">
         <button class="numpad-btn" onclick="addNumber('7')">7</button>
@@ -316,6 +327,8 @@
     let currentType = "expense";
     let selectedWallet = "";
     let selectedCategory = "";
+    let selectedWalletFrom = "";
+    let selectedWalletTo = "";
 
     // ตั้งค่าวัน/เวลา ปัจจุบัน
     const now = new Date();
@@ -334,17 +347,15 @@
             { id: 'sport', name: 'แบดมินตัน', icon: 'fa-shuttlecock' },
             { id: 'shopping', name: 'ช้อปปิ้ง', icon: 'fa-bag-shopping' },
             { id: 'bills', name: 'บิล/น้ำไฟ', icon: 'fa-file-invoice-dollar' },
+            { id: 'invest', name: 'ลงทุนหุ้น/ทอง', icon: 'fa-chart-line' },
+            { id: 'saving', name: 'ออมเงิน', icon: 'fa-piggy-bank' },
+            { id: 'pay_card', name: 'จ่ายบัตร', icon: 'fa-credit-card' },
             { id: 'other', name: 'อื่นๆ', icon: 'fa-ellipsis' }
         ],
         income: [
             { id: 'salary', name: 'เงินเดือน', icon: 'fa-money-bill-wave' },
             { id: 'transfer_in', name: 'รับโอน', icon: 'fa-hand-holding-dollar' },
             { id: 'refund', name: 'เงินคืน', icon: 'fa-rotate-left' }
-        ],
-        transfer: [
-            { id: 'invest', name: 'ลงทุนหุ้น/ทอง', icon: 'fa-chart-line' },
-            { id: 'saving', name: 'เงินออม', icon: 'fa-piggy-bank' },
-            { id: 'pay_card', name: 'จ่ายบัตร', icon: 'fa-credit-card' }
         ]
     };
     let categoriesData = JSON.parse(JSON.stringify(defaultCategories));
@@ -406,13 +417,36 @@
     // สร้างปุ่มกระเป๋าเงิน
     function renderWallets(wallets) {
         walletContainer.innerHTML = '';
+        const fromContainer = document.getElementById('walletFromContainer');
+        const toContainer = document.getElementById('walletToContainer');
+        fromContainer.innerHTML = '';
+        toContainer.innerHTML = '';
+
         wallets.forEach((wallet, index) => {
+            // ปุ่มหลัก (สำหรับรายรับ/รายจ่าย)
             const btn = document.createElement('button');
             btn.className = `wallet-btn ${index === 0 ? 'active' : ''}`;
             btn.innerHTML = wallet;
             btn.onclick = () => selectWallet(wallet, btn);
             walletContainer.appendChild(btn);
             if(index === 0) selectedWallet = wallet;
+
+            // ปุ่ม "จากกระเป๋า" (สำหรับโอนย้าย)
+            const fromBtn = document.createElement('button');
+            fromBtn.className = `wallet-btn ${index === 0 ? 'active' : ''}`;
+            fromBtn.innerHTML = wallet;
+            fromBtn.onclick = () => { selectedWalletFrom = wallet; document.querySelectorAll('#walletFromContainer .wallet-btn').forEach(b => b.classList.remove('active')); fromBtn.classList.add('active'); };
+            fromContainer.appendChild(fromBtn);
+            if(index === 0) selectedWalletFrom = wallet;
+
+            // ปุ่ม "ไปกระเป๋า" (สำหรับโอนย้าย)
+            const toBtn = document.createElement('button');
+            toBtn.className = `wallet-btn ${index === 1 ? 'active' : ''}`;
+            toBtn.innerHTML = wallet;
+            toBtn.onclick = () => { selectedWalletTo = wallet; document.querySelectorAll('#walletToContainer .wallet-btn').forEach(b => b.classList.remove('active')); toBtn.classList.add('active'); };
+            toContainer.appendChild(toBtn);
+            if(index === 1) selectedWalletTo = wallet;
+            if(wallets.length === 1 && index === 0) selectedWalletTo = wallet; // Fallback ถ้ามีกระเป๋าเดียว
         });
     }
 
@@ -468,7 +502,16 @@
         selectedCategory = "";
         document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('active', 'expense', 'income', 'transfer'));
         btnElement.classList.add('active', type);
-        renderCategories(type);
+
+        // Toggle sections
+        const isTransfer = (type === 'transfer');
+        document.getElementById('walletSection').style.display = isTransfer ? 'none' : '';
+        document.getElementById('transferSection').style.display = isTransfer ? '' : 'none';
+        document.getElementById('categorySection').style.display = isTransfer ? 'none' : '';
+
+        if (!isTransfer) {
+            renderCategories(type);
+        }
     }
 
     function selectWallet(walletName, btnElement) {
@@ -497,9 +540,18 @@
             Swal.fire({ icon: 'warning', title: 'อ๊ะ!', text: 'กรุณาระบุจำนวนเงินก่อนครับ', confirmButtonColor: '#6366f1' });
             return;
         }
-        if (selectedCategory === "") {
-            Swal.fire({ icon: 'info', title: 'ลืมเลือกหมวดหมู่', text: 'เลือกหมวดหมู่ก่อนบันทึกด้วยนะ', confirmButtonColor: '#6366f1' });
-            return;
+
+        // ตรวจสอบตามประเภท
+        if (currentType === 'transfer') {
+            if (selectedWalletFrom === selectedWalletTo) {
+                Swal.fire({ icon: 'info', title: 'กระเป๋าซ้ำกัน', text: 'เลือกกระเป๋าต้นทางและปลายทางให้ต่างกัน', confirmButtonColor: '#6366f1' });
+                return;
+            }
+        } else {
+            if (selectedCategory === "") {
+                Swal.fire({ icon: 'info', title: 'ลืมเลือกหมวดหมู่', text: 'เลือกหมวดหมู่ก่อนบันทึกด้วยนะ', confirmButtonColor: '#6366f1' });
+                return;
+            }
         }
 
         const saveBtn = document.getElementById('saveBtn');
@@ -509,15 +561,30 @@
         const dateInputVal = document.getElementById('txDate').value;
         const txDateObj = new Date(dateInputVal);
 
-        const transactionData = {
-            amount: numAmount,
-            type: currentType,
-            wallet: selectedWallet,
-            category: selectedCategory,
-            note: document.getElementById('txNote').value.trim(),
-            timestamp: firebase.firestore.Timestamp.fromDate(txDateObj),
-            uid: user.uid
-        };
+        let transactionData;
+        if (currentType === 'transfer') {
+            transactionData = {
+                amount: numAmount,
+                type: 'transfer',
+                walletFrom: selectedWalletFrom,
+                walletTo: selectedWalletTo,
+                wallet: selectedWalletFrom + ' → ' + selectedWalletTo,
+                category: 'โอนเงิน',
+                note: document.getElementById('txNote').value.trim(),
+                timestamp: firebase.firestore.Timestamp.fromDate(txDateObj),
+                uid: user.uid
+            };
+        } else {
+            transactionData = {
+                amount: numAmount,
+                type: currentType,
+                wallet: selectedWallet,
+                category: selectedCategory,
+                note: document.getElementById('txNote').value.trim(),
+                timestamp: firebase.firestore.Timestamp.fromDate(txDateObj),
+                uid: user.uid
+            };
+        }
 
         db.collection("transactions").add(transactionData)
         .then(() => {
