@@ -312,7 +312,7 @@
 
     // 2. ฟังก์ชัน Login / Logout
     function signInWithGoogle() {
-        auth.signInWithPopup(provider).catch((error) => {
+        auth.signInWithRedirect(provider).catch((error) => {
             Swal.fire({ icon: 'error', title: 'ล็อคอินไม่สำเร็จ', text: error.message });
         });
     }
