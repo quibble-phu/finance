@@ -278,6 +278,16 @@
     });
     const provider = new firebase.auth.GoogleAuthProvider();
 
+    // ดักจับผลลัพธ์หลังจากที่ Google เด้งกลับมาที่แอปเรา
+    auth.getRedirectResult().then((result) => {
+        if (result.user) {
+            console.log("ล็อคอินสำเร็จ!", result.user);
+        }
+    }).catch((error) => {
+        // ถ้ามีอะไรผิดพลาด จะได้เด้งแจ้งเตือนบอกเรา
+        Swal.fire({ icon: 'error', title: 'ล็อคอินไม่สำเร็จ', text: error.message });
+    });
+
     let currentUser = null;
 
     // 1. ตรวจสอบสถานะ Login
